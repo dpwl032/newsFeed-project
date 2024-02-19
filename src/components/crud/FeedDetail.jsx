@@ -5,23 +5,27 @@ import { useNavigate } from "react-router-dom";
 import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 import { useParams } from "react-router-dom";
 import { db, storage } from "../../firebase";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import styled from "styled-components";
 import { FcLike } from "react-icons/fc";
 import { FaUser } from "react-icons/fa6";
 
 function FeedDetail() {
   const [detailFeed, setDetailFeed] = useState([]);
+  const [image, setImage] = useSelector("");
   const [selectedFile, setSelectedFile] = useState(null);
-  const [otherFeed, setOtherFeed] = useState([]);
   const [click, setClick] = useState(false);
   const [newContent, setNewContent] = useState();
   const params = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [comments, setComments] = useState([]);
 
-  const postId = params.id;
+  //유저 정보 불러오기
+  const userInfo = useSelector((state) => state.UserInfo.userInfo);
+  const feed = useSelector((state) => state.newsFeed.feed);
 
+  //댓글
   useEffect(() => {
     const fetchComments = async () => {
       try {
@@ -49,52 +53,23 @@ function FeedDetail() {
     fetchComments();
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const col = collection(db, "newsFeed");
-      const q = query(col, where("id", "==", postId));
-      const querySnapshot = await getDocs(col);
+  const postId = params.id;
 
-      if (querySnapshot.empty) {
-        console.log("불러올 피드가 없습니다!");
-        return;
-      }
+  //리덕스 초기값
 
-      const item = querySnapshot.docs.map((doc) => {
-        return {
-          postId: doc.id,
-          title: doc.data().title,
-          content: doc.data().content,
-          isEdited: doc.data().isEdited,
-          date: doc.data().date.toDate().toLocaleString(),
-          writer: doc.data().writer,
-          img: doc.data().img,
-          likes: doc.data().likes.likeCount
-        };
-      });
+  //상세페이지 아이템만 불러오기
+  const detailItem = feed.find((item) => item.postId === params.id);
 
-      const findData = item.find((e) => {
-        return e.postId === postId;
-      });
+  //구조분해 할당
+  const { writer, content, title, date, isEdited, img, postId: id, likes } = detailItem;
 
-      setDetailFeed(findData);
-      setNewContent(findData.content);
+  //다른 피드 불러오기
+  const otherFeed = feed
+    .filter((item) => item.postId !== params.id)
+    .slice(0, 4)
+    .map((e) => e);
 
-      const otherData = item
-        .filter((e) => {
-          return e.postId !== postId;
-        })
-        .slice(0, 4)
-        .map((e) => e);
-
-      setOtherFeed(otherData);
-    };
-
-    fetchData();
-  }, []);
-
-  //현재 사용자 불러오기
-  const userInfo = useSelector((state) => state.UserInfo.userInfo);
+  //     setNewContent(findData.content);
 
   //피드 수정
   const editHandler = () => {
@@ -106,15 +81,14 @@ function FeedDetail() {
     navigate("/home");
   };
 
-  if (!detailFeed) {
-    return;
-  }
+  //렌더링 오류
+  // if (!detailFeed) {
+  //   return;
+  // }
 
-  if (!otherFeed) {
-    return;
-  }
-
-  const { writer, content, title, date, isEdited, img, postId: id, likes } = detailFeed;
+  // if (!otherFeed) {
+  //   return;
+  // }
 
   const onChange = async (e) => {
     const editContent = e.target.value;
@@ -144,12 +118,13 @@ function FeedDetail() {
       //사진수정
       const editFeedRef = doc(db, "newsFeed", postId);
 
-      await updateDoc(editFeedRef, {
-        detailFeed,
+      const imgg = await updateDoc(editFeedRef, {
+        detailItem,
         content: newContent,
         date: Timestamp.fromDate(new Date()),
         isEdited: true
       });
+      alert("수정이 완료됐습니다.");
 
       navigate("/home");
     } else {
@@ -158,7 +133,7 @@ function FeedDetail() {
       const downloadURL = await getDownloadURL(imageRef);
       const editFeedRef = doc(db, "newsFeed", postId);
       await updateDoc(editFeedRef, {
-        detailFeed,
+        detailItem,
         content: newContent,
         img: downloadURL,
         date: Timestamp.fromDate(new Date()),
@@ -226,6 +201,7 @@ function FeedDetail() {
 
   return (
     <>
+      {" "}
       <section>
         <FeedAllWrap>
           <section>
@@ -242,7 +218,6 @@ function FeedDetail() {
                     </FeedInfo>
                     <GotoHome> {!isEdited ? "" : "(수정됨)"}</GotoHome>
                   </Header>
-
                   <FeedMain>
                     <FeedTitle> {title}</FeedTitle>
                     <FeedImg>
@@ -269,11 +244,10 @@ function FeedDetail() {
                     </FeedContent>
                   </FeedMain>
                 </MainWrap>
-
                 <FeedEtc>
                   <FeedLikes>
                     <FcLike />
-                    {likes}
+                    {likes.likeCount}
                   </FeedLikes>
                   {comments && comments.length > 0 ? (
                     comments.slice(0, 2).map((e, index) => (
@@ -314,7 +288,6 @@ function FeedDetail() {
           </FeedNavi>
         </FeedAllWrap>
       </section>
-
       {/* 다른글 */}
       <AddFeedWrap>
         {otherFeed.map((e) => {
@@ -359,6 +332,7 @@ const FeedItemWrap = styled.div``;
 
 const ContentWrap = styled.div`
   margin: 1rem;
+
   width: 800px;
   height: 700px;
 `;
@@ -398,6 +372,7 @@ const FeedTitle = styled.div`
 
 const FeedImg = styled.div`
   height: 50%;
+
   display: flex;
   justify-content: center;
   align-items: center;
@@ -421,6 +396,7 @@ const FeedLikes = styled.div`
   height: 20%;
   display: flex;
   align-items: center;
+
   justify-content: center;
 `;
 
@@ -510,6 +486,7 @@ const DeleteImg = styled.button`
   border: none;
   border-radius: 5px;
   cursor: pointer;
+
   &:hover {
     background-color: #8fff1e;
     transition: all 0.3s;

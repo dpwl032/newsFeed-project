@@ -13,6 +13,7 @@ import { useSelector } from "react-redux";
 import { CiMemoPad } from "react-icons/ci";
 import { SlPicture } from "react-icons/sl";
 import { BsPencilSquare } from "react-icons/bs";
+
 function FeedForm() {
   const [feed, setFeed] = useState([]);
   const [title, setTitle] = useState("");
@@ -131,7 +132,7 @@ function FeedForm() {
                   사진 첨부하기
                 </section>
               </label>
-              <FileInput type="file" name="file" id="file" onChange={handleFileSelect} />
+              <FileInput type="file" name="file" id="file" onChange={handleFileSelect} name="file" />
             </FileWrap>
 
             <ContentWrap>
